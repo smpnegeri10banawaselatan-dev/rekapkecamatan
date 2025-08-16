@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>Data CSV dengan Header Gabungan (Proxy GS)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5rem 1rem;
+      text-align: center;
+    }
+    th {
+      background: #f3f4f6;
+    }
+  </style>
+</head>
+<body class="bg-gray-100 p-6">
+
+  <h2 class="text-2xl font-bold mb-4 text-center">REKAP KECAMATAN DAMPELAS</h2>
+
+  <div class="flex justify-end mb-4">
+    <button id="downloadBtn" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+      Download Excel
+    </button>
+  </div>
+
+  <div class="overflow-auto max-w-full border rounded shadow bg-white">
+    <table id="custom-table" class="min-w-full"></table>
+  </div>
+
+  <script>
+    // Parsing CSV sederhana, hapus tanda kutip
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      return lines.map(line =>
+        line.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(cell => cell.trim().replace(/^"|"$/g, ''))
+      );
+    }
+
+    // Format angka ke Rupiah
+    function formatCurrency(value) {
+      if (!value) return '';
+      const angka = Number(value.replace(/\./g, '').replace(/,/g, '.'));
+      if (!isNaN(angka)) {
+        return 'Rp. ' + angka.toLocaleString('id-ID');
+      }
+      return value;
+    }
+
+    // Header gabungan
+    function buildTableHeader(table) {
+      const thead = document.createElement('thead');
+      const tr1 = document.createElement('tr');
+      tr1.innerHTML = `
+        <th rowspan="2">PENGGUNA BARANG</th>
+        <th colspan="3">DITEMUKAN</th>
+        <th rowspan="2">JUMLAH DITEMUKAN</th>
+        <th colspan="2">JUMLAH TOTAL</th>
+      `;
+      const tr2 = document.createElement('tr');
+      tr2.innerHTML = `
+        <th>BAIK</th>
+        <th>RUSAK BERAT</th>
+        <th>RUSAK RINGAN</th>
+        <th>TIDAK DITEMUKAN</th>
+        <th>JUMLAH TOTAL</th>
+      `;
+      thead.appendChild(tr1);
+      thead.appendChild(tr2);
+      table.appendChild(thead);
+    }
+
+    // Render isi tabel mulai baris ke-5 (index 4)
+    function renderTableBody(table, data) {
+      const tbody = document.createElement('tbody');
+      for (let i = 4; i < data.length; i++) {
+        const row = data[i];
+        const tr = document.createElement('tr');
+        const kolA = row[0] || '';
+        const kolD = formatCurrency(row[3] || '');
+        const kolE = formatCurrency(row[4] || '');
+        const kolF = formatCurrency(row[5] || '');
+        const kolG = formatCurrency(row[6] || '');
+        const kolI = formatCurrency(row[8] || '');
+        const kolJ = formatCurrency(row[9] || '');
+        tr.innerHTML = `
+          <td>${kolA}</td>
+          <td>${kolD}</td>
+          <td>${kolE}</td>
+          <td>${kolF}</td>
+          <td>${kolG}</td>
+          <td>${kolI}</td>
+          <td>${kolJ}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+      table.appendChild(tbody);
+    }
+
+    // Ambil CSV dari server dan tampilkan
+    google.script.run.withSuccessHandler((csvText) => {
+      const data = parseCSV(csvText);
+      const table = document.getElementById('custom-table');
+      buildTableHeader(table);
+      renderTableBody(table, data);
+    }).withFailureHandler(err => {
+      document.getElementById('custom-table').innerHTML = `
+        <tr><td colspan="7" class="text-center text-red-600">Error: ${err.message}</td></tr>
+      `;
+    }).fetchCsvData();
+
+    // Event tombol download Excel
+    document.getElementById('downloadBtn').addEventListener('click', () => {
+      // Panggil Apps Script untuk buat file dan dapatkan URL download
+      google.script.run.withSuccessHandler((url) => {
+        window.open(url, '_blank');
+      }).withFailureHandler(err => {
+        alert('Gagal download Excel: ' + err.message);
+      }).showDownloadDialog();
+    });
+  </script>
+
+</body>
+</html>
